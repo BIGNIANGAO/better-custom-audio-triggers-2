@@ -1,0 +1,3 @@
+interface:
+  display_name: "BattleAudio Workshop Publisher"
+  short_description: "Validate, stage, and optionally publish BattleAudio packs"

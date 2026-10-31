@@ -1,0 +1,14 @@
+﻿# Architecture
+
+Better Custom Audio Triggers separates game integration, rule evaluation, playback, package management and UI.
+
+- `battleaudio.model` defines configuration schema 4, event contexts, audio candidates and `MusicPack` identity/source/version/state. Rules retain individual `enabled`; `Config.effectivelyEnabled` combines it with the owning package's master switch.
+- `battleaudio.core` evaluates triggers, thresholds, prerequisites, pauses and stop conditions. Package-off stops only that package's playback and never edits its rule switches.
+- `battleaudio.audio` owns OpenAL playback, background music ducking and active playback lifecycles.
+- `battleaudio.storage` owns schema migration, local package folders, personal switches, package export and guarded cleanup. Each local package under `BetterCustomAudioTriggers/music-packs` has its own manifest and audio; Steam subscriptions are read and edited directly in Steam's `workshop/content/646570` tree. Only an explicit copy creates an independent local package.
+- `battleaudio.patches` connects game callbacks to the event model through ModTheSpire patches.
+- `battleaudio.ui` shows each package as a switch/name/disclosure row and shows its full rule list only while expanded. Rule rows use the full width for names; audio errors remain visible in rule details. Package/rule creation and the Workshop publishing wizard are direct list actions; rename, copy, export, delete, enable/disable, and move-to actions live in right-click menus. Package versions remain in the manifest for compatibility but are not shown or edited in the interface. Subscription edits show an overwrite warning. Removing a local package moves its rules to the root list; deleting a rule asks for confirmation. Text edits are debounced and persisted on a background worker; package switches apply immediately and persist asynchronously with rollback on failure.
+- `battleaudio.workshop` submits explicitly confirmed exports through the game's existing Steamworks session. Export files and covers are validated and staged separately; per-account item IDs are saved locally immediately after creation. The UI handles agreement prompts, progress, errors and updates without reinitializing Steam.
+- `battleaudio.localization` loads the interface strings using the game's selected language.
+
+The Mod binary contains no bundled preset media in the public source build. On upgrade, legacy `%USERPROFILE%\\.battleaudio` data is copied into the game data folder without deleting the original; local rules are migrated into package manifests, and `settings.json` stores personal switches. Subscribed packages use `music-pack.json` schema 1 and basic path/existence checks, not per-file hash verification at runtime. Exported packages retain hashes for publication validation.

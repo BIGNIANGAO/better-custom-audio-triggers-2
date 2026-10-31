@@ -1,0 +1,14 @@
+{
+  "modid": "battleaudio",
+  "name": "更好的自定义音频触发",
+  "author_list": [
+    "Battle Audio"
+  ],
+  "description": "使用自定义音频设置血量、战斗、事件与强化触发规则。公开版本不包含音乐。",
+  "version": "2.0.0",
+  "sts_version": "12-18-2022",
+  "mts_version": "3.30.0",
+  "dependencies": [
+    "basemod"
+  ]
+}
