@@ -35,6 +35,7 @@ public final class BackgroundMusic implements Music {
             public Object start(float value) { return begin(value); }
             public void paused(Object token,boolean paused) { if(token instanceof Request) { duck.pause(token,paused); applyTracks(); } }
             public void finish(Object token) { if(token instanceof Request) { requests.remove(token); duck.finish(token); applyTracks(); } }
+            public void finish(Object token,float seconds) { if(token instanceof Request) { requests.remove(token); duck.finish(token,seconds); applyTracks(); } }
         };
     }
     private static Request begin(float value) {

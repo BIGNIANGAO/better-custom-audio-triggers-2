@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Pretplaćeni muzički paketi su samo za čitanje. Kopirajte paket pre izvoza.",
   "音乐包没有可播放规则，请先配置音频再导出": "Muzički paket nema pravila sa zvukom za reprodukciju. Dodajte audio pre izvoza.",
   "音乐包导出目录不能是符号链接": "Sklad za izvoz muzičkog paketa ne može biti simboličan link.",
-  "My music pack": "Moj muzički paket"
+  "My music pack": "Moj muzički paket",
+  "自定义": "Prilagođeno",
+  "请选择至少一场战斗": "Izaberite najmanje jednu borbu",
+  "不可用": "Nedostupno",
+  "淡入时间（秒）": "Postepeno pojačavanje (sekunde)",
+  "淡出时间（秒）": "Postepeno utišavanje (sekunde)",
+  "第一层": "Akt 1",
+  "第二层": "Akt 2",
+  "第三层": "Akt 3"
 }

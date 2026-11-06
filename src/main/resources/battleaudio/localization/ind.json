@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Paket musik langganan hanya dapat dibaca. Salin paket sebelum mengekspornya.",
   "音乐包没有可播放规则，请先配置音频再导出": "Paket musik tidak memiliki aturan yang dapat diputar. Tambahkan audio sebelum mengekspor.",
   "音乐包导出目录不能是符号链接": "Folder ekspor musik-pack tidak bisa menjadi tautan simbolis.",
-  "My music pack": "Paket musik saya"
+  "My music pack": "Paket musik saya",
+  "自定义": "Kustom",
+  "请选择至少一场战斗": "Pilih setidaknya satu pertempuran",
+  "不可用": "Tidak tersedia",
+  "淡入时间（秒）": "Masuk perlahan (detik)",
+  "淡出时间（秒）": "Keluar perlahan (detik)",
+  "第一层": "Akta 1",
+  "第二层": "Akta 2",
+  "第三层": "Akta 3"
 }

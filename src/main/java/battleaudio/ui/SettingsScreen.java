@@ -141,7 +141,7 @@ public final class SettingsScreen {
         if (!draft.rules.isEmpty() && draft.packs.isEmpty()) draft.migrate();
         if (!draft.packs.isEmpty()) activePackId = draft.packs.get(0).id;
         createSkin();
-        stage = new Stage(new FitViewport(embedded ? com.megacrit.cardcrawl.core.Settings.WIDTH / com.megacrit.cardcrawl.core.Settings.scale : 1600,
+        stage = createStage(new FitViewport(embedded ? com.megacrit.cardcrawl.core.Settings.WIDTH / com.megacrit.cardcrawl.core.Settings.scale : 1600,
                 embedded ? com.megacrit.cardcrawl.core.Settings.HEIGHT / com.megacrit.cardcrawl.core.Settings.scale : 1000));
         stage.addCaptureListener(new UiClickSounds(() -> busy || closed));
         stage.addCaptureListener(new InputListener() {
@@ -259,9 +259,30 @@ public final class SettingsScreen {
         message(error == null ? "" : I18n.error(error));
     }
 
+    private void captureViewport() {
+        renderViewport.clear();
+        Gdx.gl.glGetIntegerv(com.badlogic.gdx.graphics.GL20.GL_VIEWPORT, renderViewport);
+    }
+
+    private void restoreViewport() {
+        Gdx.gl.glViewport(renderViewport.get(0), renderViewport.get(1), renderViewport.get(2), renderViewport.get(3));
+    }
+
+    private Stage createStage(FitViewport viewport) {
+        captureViewport();
+        try { return new Stage(viewport); }
+        finally { restoreViewport(); }
+    }
+
+    private void updateViewport() {
+        captureViewport();
+        try { stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true); }
+        finally { restoreViewport(); }
+    }
+
     public void open() {
         previousInput = Gdx.input.getInputProcessor();
-        stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        updateViewport();
         configureEmbeddedBounds();
         Gdx.input.setInputProcessor(stage);
         stage.setScrollFocus(null);
@@ -290,7 +311,7 @@ public final class SettingsScreen {
             }
         }
         if (closed) return;
-        stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        updateViewport();
         stage.act(Math.min(0.05f, Gdx.graphics.getDeltaTime()));
         if (Gdx.input.getInputProcessor() != stage) Gdx.input.setInputProcessor(stage);
     }
@@ -305,12 +326,14 @@ public final class SettingsScreen {
         skin.getDrawable("background").draw(batch,0,0,
                 com.megacrit.cardcrawl.core.Settings.WIDTH,com.megacrit.cardcrawl.core.Settings.HEIGHT);
         batch.end();
-        renderViewport.clear();
-        Gdx.gl.glGetIntegerv(com.badlogic.gdx.graphics.GL20.GL_VIEWPORT, renderViewport);
-        stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
-        stage.draw();
-        Gdx.gl.glViewport(renderViewport.get(0), renderViewport.get(1), renderViewport.get(2), renderViewport.get(3));
-        if (drawing) batch.begin();
+        captureViewport();
+        try {
+            stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+            stage.draw();
+        } finally {
+            restoreViewport();
+            if (drawing) batch.begin();
+        }
     }
 
     private void createSkin() { SettingsSkin.populate(skin,draft); }
@@ -1240,6 +1263,30 @@ public final class SettingsScreen {
             row(I18n.text("内部编号（高级）"),manual);
         }
     }
+    private void encounterFilter(Rule rule, Trigger trigger) {
+        Config.EventFilter existing = rule.filters.get(trigger);
+        boolean custom = existing != null && existing.customEncounter;
+        String title = I18n.text(trigger == Trigger.BOSS_START ? "首领" : "精英");
+        SelectBox<String> mode = select(new String[] {I18n.text("任意"), I18n.text("自定义")}, custom ? 1 : 0, index -> {
+            rule.filter(trigger).selectEncounters(index == 1);
+            completions.add(() -> bind(true));
+        });
+        mode.setName(scopedName("encounter-mode-" + trigger.name()));
+        row(title, mode);
+        if (!custom) return;
+        Config.EventFilter filter = existing;
+        String name = scopedName("encounter-" + trigger.name());
+        String currentAct = com.megacrit.cardcrawl.core.CardCrawlGame.dungeon == null
+                ? null : com.megacrit.cardcrawl.dungeons.AbstractDungeon.id;
+        Label empty = label(I18n.text("请选择至少一场战斗"));
+        empty.setWrap(true); empty.setFontScale(.78f); empty.setVisible(filter.encounterIds.isEmpty());
+        SearchMultiSelect chooser = new SearchMultiSelect(skin, title, name,
+                FilterOptions.encounters(trigger, filter.encounterIds, currentAct), new LinkedHashSet<>(filter.encounterIds), ids -> {
+                    filter.encounterIds = new ArrayList<>(ids); empty.setVisible(ids.isEmpty()); modified();
+                });
+        row(I18n.text("可选") + title, chooser);
+        editor.add(empty).colspan(2).minWidth(0).growX().padBottom(10).row();
+    }
     private void optionList(String title,String name,String current,java.util.List<FilterOptions.Option> options,Consumer<String> change) {
         SearchMultiSelect chooser=new SearchMultiSelect(skin,title,scopedName(name),options,
                 battleaudio.model.IdSelection.parse(current),ids->{
@@ -1360,6 +1407,14 @@ public final class SettingsScreen {
                 retention.setName("background-ratio"); background.add(retention).growX().padRight(12); background.add(retained).width(85);
                 item.add(label(I18n.text("播放时背景音乐保留"))).width(embedded ? 320 : 360).minWidth(embedded ? 240 : 300).left().padRight(12);
                 item.add(background).minWidth(0).growX().height(44).row();
+                TextField fadeIn = number(audio.fadeInSeconds, false, Float.MAX_VALUE, next -> audio.fadeInSeconds = next.floatValue());
+                fadeIn.setName("fade-in-seconds");
+                item.add(label(I18n.text("淡入时间（秒）"))).width(embedded ? 320 : 360).minWidth(embedded ? 240 : 300).left().padRight(12);
+                item.add(fadeIn).minWidth(0).growX().height(44).row();
+                TextField fadeOut = number(audio.fadeOutSeconds, false, Float.MAX_VALUE, next -> audio.fadeOutSeconds = next.floatValue());
+                fadeOut.setName("fade-out-seconds");
+                item.add(label(I18n.text("淡出时间（秒）"))).width(embedded ? 320 : 360).minWidth(embedded ? 240 : 300).left().padRight(12);
+                item.add(fadeOut).minWidth(0).growX().height(44).row();
                 Table previewActions = new Table(); previewActions.left();
                 previewActions.add(candidateAction(I18n.text("试听"), () -> {
                     if (!audio.playable() || !valid()) return;
@@ -1567,6 +1622,7 @@ public final class SettingsScreen {
             saveFailureRecovery.clear();
             copyPackagePersistence(snapshot); host.apply(snapshot.copy()); host.persistenceCompleted(snapshot);
             persisted = new com.google.gson.Gson().toJson(draft); pendingSave = null;
+            if (invalidInputs.isEmpty()) message("");
             return true;
         } catch (Exception ex) {
             Throwable cause = ex instanceof ExecutionException ? ex.getCause() : ex;
@@ -1909,6 +1965,7 @@ public final class SettingsScreen {
                 }
             }
             if (checked && definition.filter.equals("scene")) sceneFilter(condition,trigger);
+            if (checked && (trigger == Trigger.BOSS_START || trigger == Trigger.ELITE_START)) encounterFilter(condition, trigger);
             if (checked && trigger==Trigger.EVOKE_ORB) evokeFilter(condition);
             if (checked && (trigger==Trigger.CHANNEL_ORB || trigger==Trigger.EVOKE_ORB || trigger==Trigger.ORB_PASSIVE))
                 cadenceFilter(condition,trigger,true,true,null);

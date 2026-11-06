@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Abonnerte musikkpakker er skrivebeskyttet. Kopier pakken før du eksporterer den.",
   "音乐包没有可播放规则，请先配置音频再导出": "Musikkpakken har ingen spillbare regler. Legg til lyd før eksport.",
   "音乐包导出目录不能是符号链接": "Musikpakkeeksportmappen kan ikke være en symbolsk lenke.",
-  "My music pack": "Min musikkpakke"
+  "My music pack": "Min musikkpakke",
+  "自定义": "Tilpasset",
+  "请选择至少一场战斗": "Velg minst én kamp",
+  "不可用": "Ikke tilgjengelig",
+  "淡入时间（秒）": "Innblending (sekunder)",
+  "淡出时间（秒）": "Utblending (sekunder)",
+  "第一层": "Akt 1",
+  "第二层": "Akt 2",
+  "第三层": "Akt 3"
 }

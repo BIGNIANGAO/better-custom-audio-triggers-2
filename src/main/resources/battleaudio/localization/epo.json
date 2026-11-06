@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Abonitaj muzikpakaĵoj estas nurlegeblaj. Kopiu la pakaĵon antaŭ eksportado.",
   "音乐包没有可播放规则，请先配置音频再导出": "La muzikpakaĵo ne havas ludeblajn regulojn. Aldonu aŭdion antaŭ eksportado.",
   "音乐包导出目录不能是符号链接": "La muzik-paketa eksportfolio ne povas esti simbola ligo.",
-  "My music pack": "Mia muzikpakaĵo"
+  "My music pack": "Mia muzikpakaĵo",
+  "自定义": "Propra",
+  "请选择至少一场战斗": "Elektu almenaŭ unu batalon",
+  "不可用": "Ne disponebla",
+  "淡入时间（秒）": "Laŭtiĝo (sekundoj)",
+  "淡出时间（秒）": "Mallaŭtiĝo (sekundoj)",
+  "第一层": "Akto 1",
+  "第二层": "Akto 2",
+  "第三层": "Akto 3"
 }

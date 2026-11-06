@@ -54,9 +54,14 @@ public final class RuleEngine {
         playback.stopRule(rule.id);
     }
     private void stopLifecycle(Set<Trigger> triggers) {
+        stopLifecycle(triggers, new EventContext());
+    }
+    private void stopLifecycle(Set<Trigger> triggers, EventContext context) {
         for (Rule rule : config.rules) if (config.effectivelyEnabled(rule)) {
             Rule stop = rule.stopConditions.asRule(rule.id + ":stop");
-            for (Trigger trigger : triggers) if (eligible(stop, trigger, null, new EventContext(), condition -> true, 0)) {
+            for (Trigger trigger : triggers) if (eligible(stop, trigger, null,
+                    trigger == Trigger.BOSS_START || trigger == Trigger.ELITE_START ? context : new EventContext(),
+                    condition -> true, 0)) {
                 stopRule(rule); break;
             }
         }
@@ -145,6 +150,9 @@ public final class RuleEngine {
         battleStart(scene, boss, elite, !boss && !elite, health, maxHealth);
     }
     public void battleStart(String scene, boolean boss, boolean elite, boolean normal, int health, int maxHealth) {
+        battleStart(scene, boss, elite, normal, health, maxHealth, "");
+    }
+    public void battleStart(String scene, boolean boss, boolean elite, boolean normal, int health, int maxHealth, String encounterId) {
         beginEvent();
         try {
             scene(scene); baseline(health, maxHealth); inBattle = true; pending.clear();
@@ -157,7 +165,8 @@ public final class RuleEngine {
             if (boss) due.add(Trigger.BOSS_START);
             if (elite) due.add(Trigger.ELITE_START);
             if (normal) due.add(Trigger.NORMAL_BATTLE_START);
-            stopLifecycle(due);
+            EventContext battle = new EventContext().encounter(encounterId);
+            stopLifecycle(due, battle);
 
             playEligibleRules(rule -> carry.contains(rule.id) && rule.roomBehavior == Config.RoomBehavior.STOP_AND_RESTART_NEXT_BATTLE);
             for (Rule rule : config.rules) if (carry.contains(rule.id) && config.effectivelyEnabled(rule)
@@ -165,8 +174,8 @@ public final class RuleEngine {
             carry.clear();
             event(Trigger.BATTLE_START, null);
             if (first) event(Trigger.FIRST_BATTLE, null);
-            if (boss) event(Trigger.BOSS_START, null);
-            if (elite) event(Trigger.ELITE_START, null);
+            if (boss) event(Trigger.BOSS_START, null, battle);
+            if (elite) event(Trigger.ELITE_START, null, battle);
             if (normal) event(Trigger.NORMAL_BATTLE_START, null);
         } finally { endEvent(); }
     }
@@ -282,6 +291,8 @@ public final class RuleEngine {
     private boolean accepts(Rule rule, Trigger trigger, EventContext c) {
         Config.EventFilter f=rule.filters.get(trigger);
         if (f==null) return true;
+        if ((trigger==Trigger.BOSS_START || trigger==Trigger.ELITE_START) && f.customEncounter
+                && !f.encounterIds.contains(c.encounterId)) return false;
         if (!field(f.sourceType,c.sourceType) || !field(f.sourceId,c.sourceId)
                 || !field(f.targetType,c.targetType) || !field(f.targetId,c.targetId)
                 || !field(f.enemyType,c.enemyType) || f.lastEnemy!=null && !f.lastEnemy.equals(c.lastEnemy)

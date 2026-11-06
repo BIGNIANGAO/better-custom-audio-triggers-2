@@ -22,6 +22,8 @@ public final class BackgroundMixTests {
         overlapAndRecovery();
         actualSnapshotAndCeiling();
         playbackMixAndInterruptedRecovery();
+        fadeOutRespectsOtherAudio();
+        pausedNaturalFadeRestoresBackground();
         pausePreviewAndNaturalEnd();
         migratedValuesAndValidation();
         recoveryBoundariesAndFailures();
@@ -110,6 +112,37 @@ public final class BackgroundMixTests {
             Track replacement=new Track(0);Owner replacementOwner=new Owner(replacement);BackgroundMusic.wrap(replacementOwner);replacementOwner.music.play();replacementOwner.music.setVolume(.6f);
             near(replacement.volume,.16f,"New game BGM during active audio inherits episode attenuation baseline");
             fixture.manager.stopAll();BackgroundMusic.update(1);near(replacement.volume,.6f,"New game track recovery respects game volume cap");replacementOwner.music.dispose();
+        }
+    }
+    private static void fadeOutRespectsOtherAudio(){
+        try(Fixture fixture=new Fixture()){
+            Rule strong=audio("fade-strong",.2f), remaining=audio("fade-remaining",.5f);
+            strong.audio().fadeOutSeconds=2;
+            fixture.manager.start(strong,"room"); fixture.manager.start(remaining,"room");
+            fixture.manager.stopRule(strong.id);
+            BackgroundMusic.update(.5f); near(fixture.original.volume,.22f,"Fading voice starts synchronized background recovery");
+            fixture.manager.tick(1); check(!fixture.voices.get(0).disposed,"Custom audio is still fading");
+            BackgroundMusic.update(1.5f); near(fixture.original.volume,.4f,"Remaining audio still limits original background during fade");
+            fixture.manager.tick(1); check(fixture.voices.get(0).disposed,"Faded voice is released after its duration");
+            fixture.manager.stopAll(); BackgroundMusic.update(1); near(fixture.original.volume,.8f,"Final audio restores original background");
+        }
+    }
+    private static void pausedNaturalFadeRestoresBackground(){
+        try(Fixture fixture=new Fixture()){
+            Rule fading=audio("paused-natural-fade",.2f), blocker=audio("fade-blocker",.9f);
+            fading.audio().fadeOutSeconds=4; fading.pauseWhenRuleIds.add(blocker.id);
+            fixture.manager.start(fading,"room");
+            fixture.voices.get(0).position=16; fixture.manager.tick(.1f);
+            fixture.manager.start(blocker,"room");
+            check(fixture.manager.pausedRuleIds().contains(fading.id),"Natural fade can be paused by another rule");
+            BackgroundMusic.update(1); near(fixture.original.volume,.72f,"Paused fade respects blocking audio background ratio");
+            fixture.manager.stopRule(blocker.id);
+            check(!fixture.manager.pausedRuleIds().contains(fading.id),"Natural fade resumes after blocker ends");
+            near(fixture.original.volume,.48f,"Resumed half-faded voice reacquires its proportional background mix");
+            fixture.manager.tick(.1f); BackgroundMusic.update(1);
+            near(fixture.original.volume,.64f,"Resumed fade restores background over its remaining segment");
+            fixture.voices.get(0).position=18; fixture.manager.tick(.1f); BackgroundMusic.update(1);
+            near(fixture.original.volume,.8f,"Final completion restores the original background volume");
         }
     }
     private static void migratedValuesAndValidation(){

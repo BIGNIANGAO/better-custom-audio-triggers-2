@@ -305,7 +305,7 @@ public final class BattleAudioMod implements PostInitializeSubscriber, PreUpdate
         if (!run || pendingRun) startRun(restoreBattled);
         syncRoom();
         engine.battleStart("room-" + roomSerial, room instanceof MonsterRoomBoss, room instanceof MonsterRoomElite, normalRoom(room),
-                AbstractDungeon.player.currentHealth, AbstractDungeon.player.maxHealth);
+                AbstractDungeon.player.currentHealth, AbstractDungeon.player.maxHealth, AbstractDungeon.lastCombatMetricKey);
         events.baseline();
     }
 

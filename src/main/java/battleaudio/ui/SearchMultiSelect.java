@@ -75,6 +75,7 @@ final class SearchMultiSelect extends Table {
         search.setMessageText(names.isEmpty()?I18n.text("输入名称搜索"):String.join("、",names));
     }
     private void refresh() {
+        float previousScroll = scroll.getScrollY();
         choices.clear(); int count=0;
         for(FilterOptions.Option option:options)if(option.matches(search.getText())) {
             CheckBox box=new CheckBox(option.name,skin);
@@ -91,6 +92,10 @@ final class SearchMultiSelect extends Table {
         }
         if(count==0)choices.add(new Label(I18n.text("没有匹配项目"),skin)).minWidth(0).growX().height(48).row();
         popup.invalidateHierarchy();
+        if(popupStage!=null) {
+            position();
+            scroll.setScrollY(previousScroll); scroll.updateVisualScroll();
+        }
     }
     private void show() {
         if(popupStage!=null)return;

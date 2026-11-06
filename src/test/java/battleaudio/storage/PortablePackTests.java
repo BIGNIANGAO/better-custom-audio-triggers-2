@@ -36,8 +36,9 @@ public final class PortablePackTests {
         for (Rule rule : config.rules) if (packId.equals(rule.packId)) return rule;
         throw new AssertionError("missing rule for " + packId);
     }
+    public static void main(String[] args) throws Exception { run(); }
     public static void run() throws Exception {
-        directFoldersAndCopies(); subscribedAndLocal(); legacyMigration(); directoryMigration();
+        directFoldersAndCopies(); subscribedAndLocal(); featureRoundTrip(); legacyMigration(); directoryMigration();
         System.out.println("PASS: " + checks + " portable music-pack checks");
     }
 
@@ -205,5 +206,44 @@ public final class PortablePackTests {
         boolean refused = false;
         try { GameStorage.prepare(clashGame, old); } catch (java.io.IOException expected) { refused = true; }
         check(refused && Files.exists(old.resolve("settings.json")), "Existing game data blocks ambiguous migration without overwriting either side");
+    }
+
+    private static void featureRoundTrip() throws Exception {
+        Path root = Files.createTempDirectory("battleaudio-encounter-fade-pack-");
+        Path folder = root.resolve("music-packs/legacy"); item(folder, "Legacy package");
+        JsonObject legacy = new JsonParser().parse(new String(Files.readAllBytes(folder.resolve("music-pack.json")), StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject oldRule = legacy.getAsJsonArray("rules").get(0).getAsJsonObject();
+        oldRule.getAsJsonArray("triggers").add("BOSS_START");
+        JsonObject oldAudio = oldRule.getAsJsonArray("candidates").get(0).getAsJsonObject();
+        oldAudio.remove("fadeInSeconds"); oldAudio.remove("fadeOutSeconds");
+        write(folder.resolve("music-pack.json"), legacy);
+        byte[] before = Files.readAllBytes(folder.resolve("music-pack.json"));
+        AudioLibrary library = new AudioLibrary(root, null, true); Config config = library.load();
+        Rule rule = ruleFor(config, "legacy");
+        check(!rule.filter(Trigger.BOSS_START).customEncounter && rule.audio().fadeInSeconds == 0 && rule.audio().fadeOutSeconds == 0,
+                "Old package defaults to any boss and zero fades");
+        check(Arrays.equals(before, Files.readAllBytes(folder.resolve("music-pack.json"))), "Reading old package does not rewrite it");
+        rule.filter(Trigger.BOSS_START).selectEncounters(true);
+        rule.filter(Trigger.BOSS_START).encounterIds.addAll(Arrays.asList("Hexaghost", "The Heart"));
+        rule.audio().fadeInSeconds = 1.25f; rule.audio().fadeOutSeconds = 2.5f;
+        library.save(config);
+        AudioLibrary restarted = new AudioLibrary(root, null, true); Config loaded = restarted.load();
+        Rule saved = ruleFor(loaded, "legacy");
+        check(saved.filter(Trigger.BOSS_START).customEncounter
+                && saved.filter(Trigger.BOSS_START).encounterIds.equals(Arrays.asList("Hexaghost", "The Heart"))
+                && saved.audio().fadeInSeconds == 1.25f && saved.audio().fadeOutSeconds == 2.5f,
+                "Encounter choices and per-audio fades survive save and restart");
+        Path export = root.resolve("feature-export"); restarted.exportPackage(loaded, "legacy", export);
+        WorkshopPackageCatalog.Bundle exported = WorkshopPackageCatalog.readBundle(export, null);
+        Rule exportedRule = exported.rules.get(0);
+        check(exported.schemaVersion == 1 && exportedRule.filter(Trigger.BOSS_START).customEncounter
+                && Config.EventFilter.ENCOUNTER_TARGET.equals(exportedRule.filter(Trigger.BOSS_START).targetType)
+                && exportedRule.audio().fadeOutSeconds == 2.5f,
+                "Export retains new features and old-reader fail-closed marker");
+        Config copied = restarted.copyPackage(loaded, "legacy");
+        Rule copiedRule = null;
+        for (Rule candidate : copied.rules) if (!candidate.id.equals(saved.id)) copiedRule = candidate;
+        check(copiedRule != null && copiedRule.filter(Trigger.BOSS_START).encounterIds.equals(Arrays.asList("Hexaghost", "The Heart"))
+                && copiedRule.audio().fadeInSeconds == 1.25f, "Package copy preserves encounters and fades");
     }
 }

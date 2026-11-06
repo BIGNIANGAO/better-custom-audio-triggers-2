@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Gói nhạc đã đăng ký chỉ có thể đọc. Hãy sao chép gói trước khi xuất.",
   "音乐包没有可播放规则，请先配置音频再导出": "Gói nhạc không có quy tắc phát được. Hãy thêm âm thanh trước khi xuất.",
   "音乐包导出目录不能是符号链接": "Bộ thư mục xuất khẩu music-pack không thể là một liên kết biểu tượng.",
-  "My music pack": "Gói nhạc của tôi"
+  "My music pack": "Gói nhạc của tôi",
+  "自定义": "Tùy chỉnh",
+  "请选择至少一场战斗": "Chọn ít nhất một trận chiến",
+  "不可用": "Không khả dụng",
+  "淡入时间（秒）": "Tăng âm dần (giây)",
+  "淡出时间（秒）": "Giảm âm dần (giây)",
+  "第一层": "Đạo luật 1",
+  "第二层": "Đạo luật 2",
+  "第三层": "Đạo luật 3"
 }

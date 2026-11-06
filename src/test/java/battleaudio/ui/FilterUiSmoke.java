@@ -84,8 +84,72 @@ public final class FilterUiSmoke {
             candidateBackgroundChecks(screen);
             layoutChecks(screen);
             boundaryChecks(screen);
+            encounterAndFadeChecks(screen);
             System.out.println("PASS: full overlay, vanilla-only choices, Chinese search, right checkboxes, multi-select OR, auto-save, deselect, reopen, arrow/outside/Escape dismissal");
         } catch(Exception ex){throw new RuntimeException(ex);}
+    }
+    private static void encounterAndFadeChecks(SettingsScreen screen) throws Exception {
+        Stage stage=(Stage)field(screen,"stage"); Table root=(Table)field(screen,"root");
+        Config config=(Config)field(screen,"draft"); Config.Rule rule=new Config.Rule();
+        rule.name="战斗自选验收-"+runs; rule.triggers=EnumSet.of(Config.Trigger.BOSS_START,Config.Trigger.ELITE_START);
+        Config.Candidate audio=rule.audio(); config.rules.add(rule);
+        java.lang.reflect.Field selected=SettingsScreen.class.getDeclaredField("selected");selected.setAccessible(true);selected.set(screen,rule);
+        java.lang.reflect.Field category=SettingsScreen.class.getDeclaredField("category");category.setAccessible(true);category.set(screen,battleaudio.model.Events.Category.GENERAL);
+        java.lang.reflect.Method list=SettingsScreen.class.getDeclaredMethod("list");list.setAccessible(true);list.invoke(screen);
+        java.lang.reflect.Method bind=SettingsScreen.class.getDeclaredMethod("bind",boolean.class);bind.setAccessible(true);bind.invoke(screen,false);root.validate();
+        SelectBox<?> boss=stage.getRoot().findActor("encounter-mode-BOSS_START");
+        if(boss==null || boss.getSelectedIndex()!=0 || stage.getRoot().findActor("encounter-BOSS_START-search")!=null
+                || rule.filters.containsKey(Config.Trigger.BOSS_START))throw new AssertionError("Legacy boss mode is not non-mutating Any: actor="+(boss==null?"null":boss.getSelectedIndex())+" filter="+rule.filters.containsKey(Config.Trigger.BOSS_START)+" search="+(stage.getRoot().findActor("encounter-BOSS_START-search")!=null));
+        boss.setSelectedIndex(1);screen.update();root.validate();
+        TextField search=stage.getRoot().findActor("encounter-BOSS_START-search");click(screen,search,.3f);search.setText("六火");
+        click(screen,stage.getRoot().findActor("encounter-BOSS_START-option-Hexaghost"),.25f);
+        search.setText("腐化");click(screen,stage.getRoot().findActor("encounter-BOSS_START-option-The Heart"),.25f);
+        if(!rule.filter(Config.Trigger.BOSS_START).encounterIds.equals(Arrays.asList("Hexaghost","The Heart")))
+            throw new AssertionError("Boss multi-selection did not retain both battles");
+        search.setText("");screen.render((com.badlogic.gdx.graphics.g2d.SpriteBatch)stage.getBatch());
+        Actor encounterPopup=stage.getRoot().findActor("encounter-BOSS_START-popup");
+        if(encounterPopup==null || encounterPopup.getHeight()<180)
+            throw new AssertionError("Boss selector collapsed near the bottom of the window");
+        screenshot("encounter-boss-list-"+runs+".png");
+        ScrollPane choices=stage.getRoot().findActor("encounter-BOSS_START-list");
+        choices.setScrollY(choices.getMaxY());choices.updateVisualScroll();
+        CheckBox heartBox=stage.getRoot().findActor("encounter-BOSS_START-option-The Heart");
+        click(screen,heartBox,.25f);
+        if(rule.filter(Config.Trigger.BOSS_START).encounterIds.contains("The Heart"))
+            throw new AssertionError("Scrolled boss choice could not be deselected");
+        if(Math.abs(choices.getScrollY()-choices.getMaxY())>1)
+            throw new AssertionError("Boss choice reset the list scroll position");
+        click(screen,heartBox,.25f);
+        if(!rule.filter(Config.Trigger.BOSS_START).encounterIds.equals(Arrays.asList("Hexaghost","The Heart")))
+            throw new AssertionError("Scrolled boss choice could not be selected again");
+        SearchMultiSelect.dismiss(stage);boss=stage.getRoot().findActor("encounter-mode-BOSS_START");boss.setSelectedIndex(0);screen.update();
+        if(rule.filter(Config.Trigger.BOSS_START).customEncounter || !rule.filter(Config.Trigger.BOSS_START).targetType.isEmpty())
+            throw new AssertionError("Switching back to Any did not clear the restrictive marker");
+        boss=stage.getRoot().findActor("encounter-mode-BOSS_START");boss.setSelectedIndex(1);screen.update();
+        if(rule.filter(Config.Trigger.BOSS_START).encounterIds.size()!=2)throw new AssertionError("Custom selection was lost on mode toggle");
+        SelectBox<?> elite=stage.getRoot().findActor("encounter-mode-ELITE_START");elite.setSelectedIndex(1);screen.update();root.validate();
+        search=stage.getRoot().findActor("encounter-ELITE_START-search");click(screen,search,.3f);search.setText("乐加维林");
+        click(screen,stage.getRoot().findActor("encounter-ELITE_START-option-Lagavulin"),.25f);SearchMultiSelect.dismiss(stage);
+        if(!rule.filter(Config.Trigger.ELITE_START).encounterIds.equals(Collections.singletonList("Lagavulin")))
+            throw new AssertionError("Elite selection changed the wrong condition");
+        click(screen,stage.getRoot().findActor("edit-candidate-"+audio.id),.5f);screen.update();root.validate();
+        TextField fadeIn=stage.getRoot().findActor("fade-in-seconds"),fadeOut=stage.getRoot().findActor("fade-out-seconds");
+        if(fadeIn==null || fadeOut==null || audio.fadeInSeconds!=0 || audio.fadeOutSeconds!=0)
+            throw new AssertionError("Candidate fade inputs or zero defaults missing");
+        typeValue(screen,fadeIn,"1.5");typeValue(screen,fadeOut,"2.5");
+        if(audio.fadeInSeconds!=1.5f || audio.fadeOutSeconds!=2.5f)throw new AssertionError("Candidate fade inputs do not update audio");
+        Config saved=loadSaved(screen,(battleaudio.storage.AudioLibrary)field(screen,"library"));
+        if(!((Label)field(screen,"status")).getText().toString().isEmpty())
+            throw new AssertionError("Successful fade input save left a stale validation error");
+        Config.Rule persisted=saved.rules.stream().filter(item->item.id.equals(rule.id)).findFirst().get();
+        if(!persisted.filter(Config.Trigger.BOSS_START).encounterIds.equals(Arrays.asList("Hexaghost","The Heart"))
+                || persisted.audio().fadeInSeconds!=1.5f || persisted.audio().fadeOutSeconds!=2.5f)
+            throw new AssertionError("Encounter selection or fade inputs did not persist");
+        screen.render((com.badlogic.gdx.graphics.g2d.SpriteBatch)stage.getBatch());screenshot("encounter-fade-editor-"+runs+".png");
+        System.out.println("PASS: boss and elite custom multiselect, Any compatibility, fade controls and persistence");
+    }
+    public static void encounterCombatViewportChecks(SettingsScreen screen) throws Exception {
+        encounterAndFadeChecks(screen);
     }
     private static void stopProbabilityChecks(SettingsScreen screen) throws Exception {
         Config config=(Config)field(screen,"draft");

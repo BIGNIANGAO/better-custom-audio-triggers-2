@@ -102,6 +102,7 @@ public final class DesktopSmoke {
             if (continued.getPosition()<=pausedPosition) throw new AssertionError("Actual resumed audio did not advance from paused position");
             measured.stopAll();
             backgroundMixChecks(audio,library,rule);
+            actualFadeChecks(audio,library,rule);
             System.out.println("PASS: real OpenAL linked pause holds position and naturally resumes the same handle");
             System.out.println("PASS: real OpenAL finite total=3, cross-room progress preserved and victory audio survives cleanup");
             System.out.println("PASS: real OpenAL preview plays selected segment once with loop configured");
@@ -115,6 +116,27 @@ public final class DesktopSmoke {
     private static final class BackgroundTrack {
         private Music music;
         BackgroundTrack(Music music){this.music=music;}
+    }
+    private static void actualFadeChecks(OpenALAudio audio,AudioLibrary library,Rule template) {
+        float listenerGain=org.lwjgl.openal.AL10.alGetListenerf(org.lwjgl.openal.AL10.AL_GAIN);
+        org.lwjgl.openal.AL10.alListenerf(org.lwjgl.openal.AL10.AL_GAIN,0);
+        java.util.List<Music> tracks=new java.util.ArrayList<>();
+        battleaudio.audio.PlaybackManager manager=new battleaudio.audio.PlaybackManager(cache->{
+            Music track=audio.newMusic(new com.badlogic.gdx.files.FileHandle(library.managed(cache).toFile()));tracks.add(track);return track;
+        },error->{throw new AssertionError(error);});
+        try {
+            Rule rule=new com.google.gson.Gson().fromJson(new com.google.gson.Gson().toJson(template),Rule.class);
+            rule.id="actual-fade";rule.playbackMode=Config.PlaybackMode.INFINITE;
+            rule.audio().start=0;rule.audio().end=rule.audio().duration;rule.audio().volume=.8f;
+            rule.audio().fadeInSeconds=2;rule.audio().fadeOutSeconds=2;
+            manager.start(rule,"room");Music track=tracks.get(0);
+            if(Math.abs(sourceGain(track))>.003f)throw new AssertionError("Real OpenAL fade-in did not start silent");
+            manager.tick(1);if(Math.abs(sourceGain(track)-.4f)>.003f)throw new AssertionError("Real OpenAL fade-in gain incorrect");
+            manager.stopRule(rule.id);manager.tick(.25f);
+            if(Math.abs(sourceGain(track)-.3f)>.015f)throw new AssertionError("Real OpenAL fade-out gain incorrect");
+            manager.stopAll();if(manager.count()!=0)throw new AssertionError("Manual stop did not remove real fading handle");
+            System.out.println("PASS: real OpenAL fade-in, bounded fade-out and immediate manual stop (listener muted)");
+        } finally { manager.stopAll();org.lwjgl.openal.AL10.alListenerf(org.lwjgl.openal.AL10.AL_GAIN,listenerGain); }
     }
     private static float sourceGain(Music music){
         return org.lwjgl.openal.AL10.alGetSourcef(((com.badlogic.gdx.backends.lwjgl.audio.OpenALMusic)music).getSourceId(),org.lwjgl.openal.AL10.AL_GAIN);

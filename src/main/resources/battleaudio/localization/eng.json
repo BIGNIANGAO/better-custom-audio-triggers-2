@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Subscribed music packs are read-only. Copy the pack before exporting it.",
   "音乐包没有可播放规则，请先配置音频再导出": "The music pack has no playable rules. Add audio before exporting.",
   "音乐包导出目录不能是符号链接": "The music-pack export folder cannot be a symbolic link.",
-  "My music pack": "My Music Pack"
+  "My music pack": "My Music Pack",
+  "自定义": "Custom",
+  "请选择至少一场战斗": "Select at least one battle",
+  "不可用": "Unavailable",
+  "淡入时间（秒）": "Fade-in time (seconds)",
+  "淡出时间（秒）": "Fade-out time (seconds)",
+  "第一层": "Act 1",
+  "第二层": "Act 2",
+  "第三层": "Act 3"
 }

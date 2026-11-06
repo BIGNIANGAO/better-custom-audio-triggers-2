@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Abone olunan müzik paketleri salt okunurdur. Dışa aktarmadan önce paketi kopyala.",
   "音乐包没有可播放规则，请先配置音频再导出": "Müzik paketinde oynatılabilir kural yok. Dışa aktarmadan önce ses ekle.",
   "音乐包导出目录不能是符号链接": "Müzik paket ihracat klasörü sembolik bir bağlantı olamaz.",
-  "My music pack": "Müzik paketim"
+  "My music pack": "Müzik paketim",
+  "自定义": "Özel",
+  "请选择至少一场战斗": "En az bir savaş seçin",
+  "不可用": "Kullanılamıyor",
+  "淡入时间（秒）": "Sesi artırma (saniye)",
+  "淡出时间（秒）": "Sesi azaltma (saniye)",
+  "第一层": "Birinci akt",
+  "第二层": "2. eylem",
+  "第三层": "3. eylem"
 }

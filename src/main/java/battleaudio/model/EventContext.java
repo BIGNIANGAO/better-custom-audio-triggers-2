@@ -7,6 +7,7 @@ public final class EventContext {
     public String targetType = "";
     public String targetId = "";
     public String enemyType = "";
+    public String encounterId = "";
     public Boolean lastEnemy;
     public String cardId = "";
     public String cardType = "";
@@ -27,6 +28,9 @@ public final class EventContext {
 
     public EventContext amount(int value, int old, int next) { amount=value; before=old; after=next; return this; }
     public EventContext source(String type, String id) { sourceType=type; sourceId=id==null?"":id; return this; }
+    public EventContext encounter(String id) {
+        encounterId=id==null?"":id; targetType=Config.EventFilter.ENCOUNTER_TARGET; return this;
+    }
     public EventContext target(String type, String id, Object identity) {
         targetType=type; targetId=id==null?"":id; object=identity; return this;
     }

@@ -20,15 +20,19 @@ public final class AllTests {
         background();
         ExtendedTests.run();
         CandidateTests.run();
+        EncounterSelectionTests.run();
+        LegacyEncounterReadProbe.run();
         StopConditionTests.run();
         RulePauseTests.run();
         PrerequisiteTests.run();
         BackgroundMixTests.run();
+        FadePlaybackTests.run();
         battleaudio.storage.EmbeddedPresetTests.run();
         battleaudio.storage.MusicPackageTests.run(Paths.get(args[0]));
         battleaudio.storage.PortablePackTests.run();
         battleaudio.storage.WorkshopCoverTests.run();
         battleaudio.workshop.WorkshopPublishingTests.run();
+        battleaudio.ui.ViewportStateTests.run();
         System.out.println("PASS: " + checks + " behavioral checks");
     }
 

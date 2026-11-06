@@ -61,6 +61,7 @@ public final class Config {
 
     /** All optional; missing fields in schema-3 files retain legacy trigger behavior. */
     public static final class EventFilter {
+        public static final String ENCOUNTER_TARGET = "BATTLE_ENCOUNTER";
         public String sourceType = "", sourceId = "", targetType = "", targetId = "";
         public String enemyType = "";
         public Boolean lastEnemy;
@@ -75,6 +76,13 @@ public final class Config {
         public boolean crossingOnly;
         public Cadence cadence = Cadence.EVERY;
         public boolean maxOncePerTurn, maxOncePerBattle;
+        public boolean customEncounter;
+        public List<String> encounterIds = new ArrayList<>();
+        public void selectEncounters(boolean custom) {
+            customEncounter = custom;
+            if (custom) targetType = ENCOUNTER_TARGET;
+            else if (ENCOUNTER_TARGET.equals(targetType)) targetType = "";
+        }
     }
 
     public static final class Threshold {
@@ -139,6 +147,7 @@ public final class Config {
         public double end;
         public float volume = 0.3f;
         public float backgroundRatio = 0.2f;
+        public float fadeInSeconds, fadeOutSeconds;
         public boolean participate = true;
         public boolean playable() { return error == null && cachePath != null && duration > 0; }
     }
@@ -365,6 +374,8 @@ public final class Config {
                 if (candidate != null && (!Float.isFinite(candidate.backgroundRatio) || candidate.backgroundRatio < 0 || candidate.backgroundRatio > 1))
                     throw new IllegalArgumentException("候选音频的背景音乐保留比例必须在 0% 到 100% 之间");
                 if (candidate == null || candidate.id == null || candidate.name == null || !candidateIds.add(candidate.id) || !Float.isFinite(candidate.volume) || candidate.volume < 0 || candidate.volume > 1
+                        || !Float.isFinite(candidate.fadeInSeconds) || candidate.fadeInSeconds < 0
+                        || !Float.isFinite(candidate.fadeOutSeconds) || candidate.fadeOutSeconds < 0
                         || !Double.isFinite(candidate.duration) || !Double.isFinite(candidate.start) || !Double.isFinite(candidate.end)
                         || candidate.duration < 0 || candidate.start < 0 || candidate.end < 0)
                     throw new IllegalArgumentException("候选音频无效");
@@ -447,7 +458,10 @@ public final class Config {
                     || filter.sourceType == null || filter.sourceId == null || filter.targetType == null || filter.targetId == null
                     || filter.cardId == null || filter.cardType == null || filter.sourcePile == null || filter.targetPile == null
                     || filter.enemyType == null || filter.evokeCause==null || filter.orbPosition<0
-                    || filter.previousState == null || filter.nextState == null || filter.minAmount < 0
+                    || filter.previousState == null || filter.nextState == null || filter.encounterIds == null
+                    || filter.encounterIds.stream().anyMatch(id -> id == null || id.trim().isEmpty())
+                    || filter.customEncounter && (entry.getKey() != Trigger.BOSS_START && entry.getKey() != Trigger.ELITE_START
+                    || !EventFilter.ENCOUNTER_TARGET.equals(filter.targetType)) || filter.minAmount < 0
                     || filter.minTurnTotal < 0 || filter.minCurrentValue < 0
                     || filter.crossingOnly && filter.minCurrentValue == 0
                     || filter.cardCost != Integer.MIN_VALUE && filter.cardCost < -1)

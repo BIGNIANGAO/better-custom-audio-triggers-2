@@ -596,5 +596,13 @@
   "订阅音乐包为只读；请先复制为新音乐包，再导出发布": "Los paquetes de música suscritos son de solo lectura. Copia el paquete antes de exportarlo.",
   "音乐包没有可播放规则，请先配置音频再导出": "El paquete de música no tiene reglas reproducibles. Añade audio antes de exportar.",
   "音乐包导出目录不能是符号链接": "La carpeta de exportación de paquetes de música no puede ser un enlace simbólico.",
-  "My music pack": "Mi paquete de música"
+  "My music pack": "Mi paquete de música",
+  "自定义": "Personalizado",
+  "请选择至少一场战斗": "Selecciona al menos un combate",
+  "不可用": "No disponible",
+  "淡入时间（秒）": "Aparición gradual (segundos)",
+  "淡出时间（秒）": "Desvanecimiento (segundos)",
+  "第一层": "Acta 1",
+  "第二层": "Acta 2",
+  "第三层": "Acta 3"
 }

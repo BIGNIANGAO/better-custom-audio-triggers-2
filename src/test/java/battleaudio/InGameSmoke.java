@@ -190,11 +190,22 @@ public final class InGameSmoke implements PostInitializeSubscriber, PostUpdateSu
                 catch(Throwable failure){failure.printStackTrace();Gdx.app.exit();}
             } else if (Boolean.getBoolean("battleaudio.filterSmoke")) {
                 try {
+                    int[] viewport = viewportState();
+                    int width = Gdx.graphics.getWidth(), height = Gdx.graphics.getHeight();
+                    boolean fullscreen = Gdx.graphics.isFullscreen();
+                    if (Boolean.getBoolean("battleaudio.expectedFullscreen") && !fullscreen)
+                        throw new AssertionError("Fullscreen test did not enter fullscreen mode");
                     openEmbeddedPanel();
+                    requireDisplayState(viewport, width, height, fullscreen, "Config open");
                     battleaudio.ui.FilterUiSmoke.run(getSettings());
                     getSettings().close();
+                    requireDisplayState(viewport, width, height, fullscreen, "Config close");
                     BattleAudioMod.instance.openSettings();
+                    requireDisplayState(viewport, width, height, fullscreen, "speaker open");
                     battleaudio.ui.FilterUiSmoke.run(getSettings());
+                    getSettings().close();
+                    requireDisplayState(viewport, width, height, fullscreen, "speaker close");
+                    System.out.println("PASS: both settings entry points preserve viewport, display size and fullscreen state");
                     finish();
                 } catch(Throwable failure) { failure.printStackTrace(); Gdx.app.exit(); }
             } else if (Boolean.getBoolean("battleaudio.styleSmoke")) {
@@ -245,7 +256,7 @@ public final class InGameSmoke implements PostInitializeSubscriber, PostUpdateSu
                 addScrollFixtures();
                 phase = 8; phaseFrames = 0;
             } else if (Boolean.getBoolean("battleaudio.continueSave")) resume();
-            else if (Boolean.getBoolean("battleaudio.freshEventsSmoke")) startFreshRun();
+            else if (Boolean.getBoolean("battleaudio.freshEventsSmoke") || Boolean.getBoolean("battleaudio.encounterUiCombatSmoke")) startFreshRun();
             else finish();
         }
         if((phase==50 || phase==52) && phaseFrames==60) {
@@ -448,15 +459,43 @@ public final class InGameSmoke implements PostInitializeSubscriber, PostUpdateSu
             room.phase = com.megacrit.cardcrawl.rooms.AbstractRoom.RoomPhase.COMBAT;
             room.cannotLose = false;
             com.megacrit.cardcrawl.dungeons.AbstractDungeon.currMapNode.room = room;
+            if (Boolean.getBoolean("battleaudio.killFilterSmoke")) {
+                try { actualKillFilterChecks(); finish(); }
+                catch (Throwable failure) { failure.printStackTrace(); Gdx.app.exit(); }
+                return;
+            }
+            if (Boolean.getBoolean("battleaudio.encounterUiCombatSmoke")) {
+                try {
+                    int[] viewport=viewportState();int width=Gdx.graphics.getWidth(),height=Gdx.graphics.getHeight();
+                    boolean fullscreen=Gdx.graphics.isFullscreen();
+                    if (Boolean.getBoolean("battleaudio.expectedFullscreen") && !fullscreen)
+                        throw new AssertionError("Fullscreen combat test did not enter fullscreen mode");
+                    BattleAudioMod.instance.openSettings();
+                    requireDisplayState(viewport,width,height,fullscreen,"combat speaker open");
+                    battleaudio.ui.FilterUiSmoke.encounterCombatViewportChecks(getSettings());
+                    getSettings().close();
+                    requireDisplayState(viewport,width,height,fullscreen,"combat speaker close");
+                    System.out.println("PASS: in-combat speaker opens and closes without changing display state");
+                    finish();
+                } catch(Throwable failure) { failure.printStackTrace(); Gdx.app.exit(); }
+                return;
+            }
+            if (Boolean.getBoolean("battleaudio.encounterSmoke")) {
+                try { actualEncounterSelectionChecks(); finish(); }
+                catch (Throwable failure) { failure.printStackTrace(); Gdx.app.exit(); }
+                return;
+            }
             if (Boolean.getBoolean("battleaudio.gremlinSummonSmoke")) {
                 try { actualGremlinSummonChecks(); finish(); }
                 catch (Throwable failure) { failure.printStackTrace(); Gdx.app.exit(); }
                 return;
             }
-            if (Boolean.getBoolean("battleaudio.prerequisiteSmoke")) actualPrerequisiteChecks();
-            else if (Boolean.getBoolean("battleaudio.stopProbabilitySmoke")) actualStopProbabilityChecks();
-            else if (Boolean.getBoolean("battleaudio.deathSmoke")) actualDeathChecks(); else actualEventChecks();
-            finish();
+            try {
+                if (Boolean.getBoolean("battleaudio.prerequisiteSmoke")) actualPrerequisiteChecks();
+                else if (Boolean.getBoolean("battleaudio.stopProbabilitySmoke")) actualStopProbabilityChecks();
+                else if (Boolean.getBoolean("battleaudio.deathSmoke")) actualDeathChecks(); else actualEventChecks();
+                finish();
+            } catch(Throwable failure) { failure.printStackTrace(); Gdx.app.exit(); }
         }
         if (phase == 3 && phaseFrames == 15) {
             if (com.megacrit.cardcrawl.dungeons.AbstractDungeon.actionManager.currentAction != pausedAction
@@ -2433,13 +2472,27 @@ public final class InGameSmoke implements PostInitializeSubscriber, PostUpdateSu
         if(actualEvents.getOrDefault("FILTERED_LOW_ENEMY_MATCH",0)!=matchingLowBefore+1
                 || actualEvents.getOrDefault("FILTERED_LOW_ENEMY_MISS",0)!=missingLowBefore)
             throw new AssertionError("Low-health enemy ID/type filter missed or matched wrong target");
-        // The smoke rule uses a known non-final target and is configured before the engine is installed.
+        // Keep this fixture independent from enemies killed by earlier event checks.
+        int killsBefore=eventCount(battleaudio.model.Config.Trigger.KILL_ENEMY);
+        int poisonKillsBefore=eventCount(battleaudio.model.Config.Trigger.POISON_KILL);
+        int matchingKillsBefore=actualEvents.getOrDefault("FILTERED_KILL_MATCH",0);
+        int missingKillsBefore=actualEvents.getOrDefault("FILTERED_KILL_MISS",0);
+        int lastKillsBefore=actualEvents.getOrDefault("FILTERED_KILL_LAST",0);
+        com.megacrit.cardcrawl.monsters.MonsterGroup killGroup=com.megacrit.cardcrawl.dungeons.AbstractDungeon.getMonsters();
+        killGroup.monsters.clear();
+        m=new com.megacrit.cardcrawl.monsters.exordium.JawWorm(0,0);
+        killGroup.monsters.add(m);
+        killGroup.monsters.add(new com.megacrit.cardcrawl.monsters.exordium.JawWorm(300,0));
+        battleaudio.model.Config.EventFilter killFilter=config.rules.stream().filter(rule->rule.id.equals("FILTERED_KILL_MATCH"))
+                .findFirst().get().filter(battleaudio.model.Config.Trigger.KILL_ENEMY);
+        killFilter.targetId=m.id; killFilter.enemyType=m.type.name();
         m.currentHealth = 1;
         runAction(new com.megacrit.cardcrawl.actions.unique.PoisonLoseHpAction(
                 m,p,1,com.megacrit.cardcrawl.actions.AbstractGameAction.AttackEffect.POISON));
-        assertEvent(battleaudio.model.Config.Trigger.POISON_KILL,1);
-        assertEvent(battleaudio.model.Config.Trigger.KILL_ENEMY,1);
-        if(actualEvents.getOrDefault("FILTERED_KILL_MATCH",0)!=1 || actualEvents.getOrDefault("FILTERED_KILL_MISS",0)!=0)
+        assertEvent(battleaudio.model.Config.Trigger.POISON_KILL,poisonKillsBefore+1);
+        assertEvent(battleaudio.model.Config.Trigger.KILL_ENEMY,killsBefore+1);
+        if(actualEvents.getOrDefault("FILTERED_KILL_MATCH",0)!=matchingKillsBefore+1
+                || actualEvents.getOrDefault("FILTERED_KILL_MISS",0)!=missingKillsBefore)
             throw new AssertionError("Actual final enemy kill filters missed or matched unrelated ID: match="+
                     actualEvents.getOrDefault("FILTERED_KILL_MATCH",0)+" miss="+actualEvents.getOrDefault("FILTERED_KILL_MISS",0)+
                     " target="+m.id+" type="+m.type);
@@ -2451,7 +2504,7 @@ public final class InGameSmoke implements PostInitializeSubscriber, PostUpdateSu
             }
         if(finalTarget!=null) {
             finalTarget.currentHealth=0; finalTarget.die();
-            if(actualEvents.getOrDefault("FILTERED_KILL_LAST",0)!=1)
+            if(actualEvents.getOrDefault("FILTERED_KILL_LAST",0)!=lastKillsBefore+1)
                 throw new AssertionError("Final surviving enemy did not pass last-enemy filter");
         }
         com.megacrit.cardcrawl.dungeons.AbstractDungeon.getCurrRoom().endTurn();
@@ -2488,6 +2541,153 @@ public final class InGameSmoke implements PostInitializeSubscriber, PostUpdateSu
         eventAudio.stopAll();
         System.out.println("PASS: all five new events create playing real OpenAL handles (muted), with independent overlapping instances");
         System.out.println("PASS: actual game event patches deliver audio triggers across common and all four character categories");
+    }
+    private void actualEncounterSelectionChecks() {
+        com.megacrit.cardcrawl.map.MapRoomNode node=com.megacrit.cardcrawl.dungeons.AbstractDungeon.currMapNode;
+        com.megacrit.cardcrawl.rooms.AbstractRoom previousRoom=node.room;
+        String previousBoss=com.megacrit.cardcrawl.dungeons.AbstractDungeon.bossKey;
+        String previousEncounter=com.megacrit.cardcrawl.dungeons.AbstractDungeon.lastCombatMetricKey;
+        java.util.ArrayList<String> previousElites=com.megacrit.cardcrawl.dungeons.AbstractDungeon.eliteMonsterList;
+        boolean previousAtBoss=com.megacrit.cardcrawl.dungeons.AbstractDungeon.dungeonMapScreen.map.atBoss;
+        Object previousConfig=modField("config"), previousEngine=modField("engine"), previousEvents=modField("events");
+        Object previousRun=modField("run"), previousPending=modField("pendingRun"), previousTrackedRoom=modField("room");
+        Object previousSerial=modField("roomSerial");
+        battleaudio.storage.AudioLibrary library=(battleaudio.storage.AudioLibrary)modField("library");
+        battleaudio.audio.PlaybackManager manager=new battleaudio.audio.PlaybackManager(library,error->{throw new AssertionError(error);});
+        try {
+            battleaudio.model.Config.Rule sample=library.importAudio(Paths.get(System.getProperty("battleaudio.sample")));
+            com.google.gson.Gson gson=new com.google.gson.Gson();
+            battleaudio.model.Config.Rule any=gson.fromJson(gson.toJson(sample),battleaudio.model.Config.Rule.class);
+            battleaudio.model.Config.Rule heart=gson.fromJson(gson.toJson(sample),battleaudio.model.Config.Rule.class);
+            battleaudio.model.Config.Rule elite=gson.fromJson(gson.toJson(sample),battleaudio.model.Config.Rule.class);
+            any.id="smoke-any-boss";heart.id="smoke-heart";elite.id="smoke-sentries";
+            any.triggers=java.util.EnumSet.of(battleaudio.model.Config.Trigger.BOSS_START);
+            heart.triggers=java.util.EnumSet.of(battleaudio.model.Config.Trigger.BOSS_START);
+            elite.triggers=java.util.EnumSet.of(battleaudio.model.Config.Trigger.ELITE_START);
+            heart.filter(battleaudio.model.Config.Trigger.BOSS_START).selectEncounters(true);
+            heart.filter(battleaudio.model.Config.Trigger.BOSS_START).encounterIds.add("The Heart");
+            elite.filter(battleaudio.model.Config.Trigger.ELITE_START).selectEncounters(true);
+            elite.filter(battleaudio.model.Config.Trigger.ELITE_START).encounterIds.add("3 Sentries");
+            battleaudio.model.Config config=new battleaudio.model.Config();config.rules.add(any);config.rules.add(heart);config.rules.add(elite);
+            battleaudio.core.RuleEngine engine=new battleaudio.core.RuleEngine(config,manager);
+            com.megacrit.cardcrawl.characters.AbstractPlayer player=com.megacrit.cardcrawl.dungeons.AbstractDungeon.player;
+            engine.beginRun(false,player.currentHealth,player.maxHealth);
+            setModField("config",config);setModField("engine",engine);
+            setModField("events",new battleaudio.core.GameEvents(engine));setModField("run",true);setModField("pendingRun",false);
+            String modBoss="battleaudio:test-boss",modElite="battleaudio:test-elite";
+            basemod.BaseMod.addMonster(modBoss,"Test Boss",(basemod.BaseMod.GetMonsterGroup)()->
+                    new com.megacrit.cardcrawl.monsters.MonsterGroup(new com.megacrit.cardcrawl.monsters.exordium.JawWorm(0,0)));
+            basemod.BaseMod.addMonster(modElite,"Test Elite",(basemod.BaseMod.GetMonsterGroup)()->
+                    new com.megacrit.cardcrawl.monsters.MonsterGroup(new com.megacrit.cardcrawl.monsters.exordium.JawWorm(0,0)));
+            basemod.BaseMod.addBoss("Exordium",modBoss,"","");
+            basemod.BaseMod.addEliteEncounter("Exordium",new com.megacrit.cardcrawl.monsters.MonsterInfo(modElite,1f));
+            for(String id:new String[]{"The Guardian","Hexaghost","Slime Boss","Automaton","Collector","Champ",
+                    "Awakened One","Time Eater","Donu and Deca","The Heart",modBoss}) {
+                heart.filter(battleaudio.model.Config.Trigger.BOSS_START).encounterIds.clear();
+                heart.filter(battleaudio.model.Config.Trigger.BOSS_START).encounterIds.add(id);
+                com.megacrit.cardcrawl.rooms.MonsterRoomBoss room=new com.megacrit.cardcrawl.rooms.MonsterRoomBoss();
+                node.room=room;com.megacrit.cardcrawl.dungeons.AbstractDungeon.bossKey=id;
+                room.monsters=CardCrawlGame.dungeon.getBoss();
+                if(!id.equals(com.megacrit.cardcrawl.dungeons.AbstractDungeon.lastCombatMetricKey))throw new AssertionError("Game boss identity not captured: "+id);
+                engine.battleEnd();
+                room.phase=com.megacrit.cardcrawl.rooms.AbstractRoom.RoomPhase.COMBAT;
+                com.megacrit.cardcrawl.rooms.AbstractRoom.waitTimer=.0001f;
+                com.megacrit.cardcrawl.dungeons.AbstractDungeon.actionManager.clear();
+                room.update();
+                if(!engine.inBattle())throw new AssertionError("Actual boss room did not publish battle start: "+id);
+                if(manager.count()!=2 || !manager.isRuleActive(heart.id) || !manager.isRuleActive(any.id))
+                    throw new AssertionError("Boss selection did not match actual game encounter "+id+": "+manager.count());
+                manager.stopAll();
+            }
+            for(String id:new String[]{"Gremlin Nob","Lagavulin","3 Sentries","Gremlin Leader","Slavers",
+                    "Book of Stabbing","Giant Head","Nemesis","Reptomancer","Shield and Spear",modElite}) {
+                elite.filter(battleaudio.model.Config.Trigger.ELITE_START).encounterIds.clear();
+                elite.filter(battleaudio.model.Config.Trigger.ELITE_START).encounterIds.add(id);
+                com.megacrit.cardcrawl.rooms.MonsterRoomElite room=new com.megacrit.cardcrawl.rooms.MonsterRoomElite();node.room=room;
+                com.megacrit.cardcrawl.dungeons.AbstractDungeon.eliteMonsterList=new java.util.ArrayList<>(java.util.Collections.singletonList(id));
+                room.monsters=CardCrawlGame.dungeon.getEliteMonsterForRoomCreation();
+                engine.battleEnd();room.phase=com.megacrit.cardcrawl.rooms.AbstractRoom.RoomPhase.COMBAT;
+                com.megacrit.cardcrawl.rooms.AbstractRoom.waitTimer=.0001f;
+                com.megacrit.cardcrawl.dungeons.AbstractDungeon.actionManager.clear();room.update();
+                if(!engine.inBattle())throw new AssertionError("Actual elite room did not publish battle start: "+id);
+                if(manager.count()!=1 || !manager.isRuleActive(elite.id))throw new AssertionError("Actual elite encounter was not matched: "+id);
+                manager.stopAll();
+            }
+            System.out.println("PASS: 20 vanilla and 2 generically registered boss/elite encounters drive room callbacks and muted OpenAL playback");
+        } catch(Exception ex) { throw new RuntimeException(ex); }
+        finally {
+            manager.stopAll();battleaudio.audio.BackgroundMusic.update(1);
+            node.room=previousRoom;com.megacrit.cardcrawl.dungeons.AbstractDungeon.bossKey=previousBoss;
+            com.megacrit.cardcrawl.dungeons.AbstractDungeon.lastCombatMetricKey=previousEncounter;
+            com.megacrit.cardcrawl.dungeons.AbstractDungeon.eliteMonsterList=previousElites;
+            com.megacrit.cardcrawl.dungeons.AbstractDungeon.dungeonMapScreen.map.atBoss=previousAtBoss;
+            setModField("config",previousConfig);setModField("engine",previousEngine);setModField("events",previousEvents);
+            setModField("run",previousRun);setModField("pendingRun",previousPending);setModField("room",previousTrackedRoom);setModField("roomSerial",previousSerial);
+        }
+    }
+    private void actualKillFilterChecks() {
+        com.megacrit.cardcrawl.map.MapRoomNode node=com.megacrit.cardcrawl.dungeons.AbstractDungeon.currMapNode;
+        com.megacrit.cardcrawl.rooms.AbstractRoom room=node.room;
+        com.megacrit.cardcrawl.monsters.MonsterGroup previousMonsters=room.monsters;
+        Object previousConfig=modField("config"),previousEngine=modField("engine"),previousEvents=modField("events");
+        Object previousRun=modField("run"),previousPending=modField("pendingRun"),previousRoom=modField("room");
+        battleaudio.storage.AudioLibrary library=(battleaudio.storage.AudioLibrary)modField("library");
+        battleaudio.audio.PlaybackManager manager=new battleaudio.audio.PlaybackManager(library,error->{throw new AssertionError(error);});
+        try {
+            battleaudio.model.Config.Rule sample=library.importAudio(Paths.get(System.getProperty("battleaudio.sample")));
+            sample.audio().volume=0;
+            com.google.gson.Gson gson=new com.google.gson.Gson();
+            battleaudio.model.Config config=new battleaudio.model.Config();
+            for(String id:new String[]{"any","not-last","last","wrong-id","wrong-type"}) {
+                battleaudio.model.Config.Rule rule=gson.fromJson(gson.toJson(sample),battleaudio.model.Config.Rule.class);
+                rule.id=id;rule.retriggerMode=battleaudio.model.Config.RetriggerMode.OVERLAP;
+                rule.triggers=java.util.EnumSet.of(battleaudio.model.Config.Trigger.KILL_ENEMY);
+                if(!id.equals("any")) {
+                    battleaudio.model.Config.EventFilter filter=rule.filter(battleaudio.model.Config.Trigger.KILL_ENEMY);
+                    filter.targetId=id.equals("wrong-id")?"not-the-enemy":"JawWorm";
+                    filter.enemyType=id.equals("wrong-type")?"ELITE":"NORMAL";
+                    if(id.equals("not-last"))filter.lastEnemy=false;
+                    if(id.equals("last"))filter.lastEnemy=true;
+                }
+                config.rules.add(rule);
+            }
+            battleaudio.core.RuleEngine engine=new battleaudio.core.RuleEngine(config,manager);
+            battleaudio.core.GameEvents receiver=new battleaudio.core.GameEvents(engine);
+            com.megacrit.cardcrawl.characters.AbstractPlayer player=com.megacrit.cardcrawl.dungeons.AbstractDungeon.player;
+            setModField("config",config);setModField("engine",engine);setModField("events",receiver);
+            setModField("run",true);setModField("pendingRun",false);setModField("room",room);
+            for(boolean poison:new boolean[]{false,true}) {
+                com.megacrit.cardcrawl.monsters.AbstractMonster victim=new com.megacrit.cardcrawl.monsters.exordium.JawWorm(0,0);
+                com.megacrit.cardcrawl.monsters.AbstractMonster survivor=new com.megacrit.cardcrawl.monsters.exordium.JawWorm(300,0);
+                victim.setMove((byte)0,com.megacrit.cardcrawl.monsters.AbstractMonster.Intent.ATTACK,1);
+                survivor.setMove((byte)0,com.megacrit.cardcrawl.monsters.AbstractMonster.Intent.ATTACK,1);
+                room.monsters=new com.megacrit.cardcrawl.monsters.MonsterGroup(new com.megacrit.cardcrawl.monsters.AbstractMonster[]{victim,survivor});
+                victim.currentHealth=1;victim.currentBlock=0;survivor.currentHealth=1;survivor.currentBlock=0;
+                engine.beginRun(false,player.currentHealth,player.maxHealth);
+                engine.battleStart("kill-fixture-"+poison,false,false,player.currentHealth,player.maxHealth);
+                receiver.baseline();
+                if(poison)runAction(new com.megacrit.cardcrawl.actions.unique.PoisonLoseHpAction(
+                        victim,player,1,com.megacrit.cardcrawl.actions.AbstractGameAction.AttackEffect.POISON));
+                else victim.damage(new com.megacrit.cardcrawl.cards.DamageInfo(player,10,com.megacrit.cardcrawl.cards.DamageInfo.DamageType.NORMAL));
+                if(!manager.isRuleActive("any") || !manager.isRuleActive("not-last") || manager.isRuleActive("last")
+                        || manager.isRuleActive("wrong-id") || manager.isRuleActive("wrong-type") || manager.count()!=2)
+                    throw new AssertionError("Non-final kill filter mismatch, poison="+poison+", audio="+manager.count());
+                victim.die();
+                if(manager.count()!=2)throw new AssertionError("Repeated death started duplicate audio, poison="+poison);
+                manager.stopAll();
+                survivor.damage(new com.megacrit.cardcrawl.cards.DamageInfo(player,10,com.megacrit.cardcrawl.cards.DamageInfo.DamageType.NORMAL));
+                if(!manager.isRuleActive("any") || !manager.isRuleActive("last") || manager.isRuleActive("not-last")
+                        || manager.isRuleActive("wrong-id") || manager.isRuleActive("wrong-type") || manager.count()!=2)
+                    throw new AssertionError("Final kill filter mismatch, poison="+poison+", audio="+manager.count());
+                manager.stopAll();
+                System.out.println("PASS: "+(poison?"poison":"normal")+" kill: non-final/final, target/type negatives, no duplicate, real audio");
+            }
+        } catch(Exception ex) { throw new RuntimeException(ex); }
+        finally {
+            manager.stopAll();battleaudio.audio.BackgroundMusic.update(1);room.monsters=previousMonsters;
+            setModField("config",previousConfig);setModField("engine",previousEngine);setModField("events",previousEvents);
+            setModField("run",previousRun);setModField("pendingRun",previousPending);setModField("room",previousRoom);
+        }
     }
     private void damageChecks(battleaudio.model.Config config, com.megacrit.cardcrawl.characters.AbstractPlayer p, com.megacrit.cardcrawl.monsters.AbstractMonster m) {
         battleaudio.model.Config.Trigger trigger=battleaudio.model.Config.Trigger.DAMAGE_THRESHOLD;
@@ -2827,6 +3027,17 @@ public final class InGameSmoke implements PostInitializeSubscriber, PostUpdateSu
         try { Files.write(Paths.get("smoke-passed.txt"), "PASS: real game initialized, save callback, game settings and combat scenario\n".getBytes("UTF-8")); }
         catch (Exception ex) { throw new RuntimeException(ex); }
         Gdx.app.exit();
+    }
+    private static int[] viewportState() {
+        java.nio.IntBuffer value=com.badlogic.gdx.utils.BufferUtils.newIntBuffer(16);
+        Gdx.gl.glGetIntegerv(com.badlogic.gdx.graphics.GL20.GL_VIEWPORT,value);
+        return new int[] {value.get(0),value.get(1),value.get(2),value.get(3)};
+    }
+    private static void requireDisplayState(int[] viewport,int width,int height,boolean fullscreen,String step) {
+        int[] current=viewportState();
+        if(!java.util.Arrays.equals(viewport,current) || Gdx.graphics.getWidth()!=width
+                || Gdx.graphics.getHeight()!=height || Gdx.graphics.isFullscreen()!=fullscreen)
+            throw new AssertionError(step+" changed display state: "+java.util.Arrays.toString(current));
     }
     public void receivePostRender(com.badlogic.gdx.graphics.g2d.SpriteBatch batch) {
         if (!screenshot) return;

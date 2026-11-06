@@ -9,6 +9,11 @@
     [switch]$ConfigSmoke,
     [switch]$SliderSmoke,
     [switch]$EventsSmoke,
+    [switch]$FreshEventsSmoke,
+    [switch]$KillFilterSmoke,
+    [switch]$EncounterSmoke,
+    [switch]$EncounterUiCombatSmoke,
+    [switch]$Fullscreen,
     [switch]$StopProbabilitySmoke,
     [switch]$PrerequisiteSmoke,
     [switch]$BackgroundMixSmoke,
@@ -75,7 +80,8 @@ if ($Language) {
     $languagePrefs | Add-Member -NotePropertyName LANGUAGE -NotePropertyValue $Language -Force
     [IO.File]::WriteAllText($languagePrefsPath, ($languagePrefs | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
 }
-[IO.File]::WriteAllText((Join-Path $output 'info.displayconfig'), "$Width`n$Height`n60`nfalse`nfalse`ntrue`n", [Text.UTF8Encoding]::new($false))
+$fullscreenSetting = if ($Fullscreen) { 'true' } else { 'false' }
+[IO.File]::WriteAllText((Join-Path $output 'info.displayconfig'), "$Width`n$Height`n60`n$fullscreenSetting`nfalse`ntrue`n", [Text.UTF8Encoding]::new($false))
 $mts = Join-Path $WorkshopDir '1605060445\ModTheSpire.jar'
 $baseMod = Join-Path $WorkshopDir '1605833019\BaseMod.jar'
 $modVersion = (Get-Content -LiteralPath (Join-Path $projectRoot 'src\main\resources\ModTheSpire.json') -Raw -Encoding UTF8 | ConvertFrom-Json).version
@@ -132,6 +138,11 @@ if ($ConfigSmoke) { $arguments = @('-Dbattleaudio.configSmoke=true') + $argument
 if ($SliderSmoke) { $arguments = @('-Dbattleaudio.sliderSmoke=true') + $arguments }
 if ($DeathSmoke) { $arguments = @('-Dbattleaudio.deathSmoke=true', '-Dbattleaudio.freshEventsSmoke=true') + $arguments }
 if ($EventsSmoke) { $arguments = @('-Dbattleaudio.eventsSmoke=true') + $arguments }
+if ($FreshEventsSmoke) { $arguments = @('-Dbattleaudio.eventsSmoke=true', '-Dbattleaudio.freshEventsSmoke=true') + $arguments }
+if ($KillFilterSmoke) { $arguments = @('-Dbattleaudio.killFilterSmoke=true', '-Dbattleaudio.freshEventsSmoke=true') + $arguments }
+if ($EncounterSmoke) { $arguments = @('-Dbattleaudio.encounterSmoke=true', '-Dbattleaudio.freshEventsSmoke=true') + $arguments }
+if ($EncounterUiCombatSmoke) { $arguments = @('-Dbattleaudio.encounterUiCombatSmoke=true') + $arguments }
+if ($Fullscreen) { $arguments = @('-Dbattleaudio.expectedFullscreen=true') + $arguments }
 if ($StopProbabilitySmoke) { $arguments = @('-Dbattleaudio.stopProbabilitySmoke=true', '-Dbattleaudio.freshEventsSmoke=true') + $arguments }
 if ($PrerequisiteSmoke) { $arguments = @('-Dbattleaudio.prerequisiteSmoke=true', '-Dbattleaudio.freshEventsSmoke=true') + $arguments }
 if ($BackgroundMixSmoke) { $arguments = @('-Dbattleaudio.backgroundMixSmoke=true') + $arguments }
